@@ -22,11 +22,12 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-import csv, os
+import csv
+import os
      
      
 def logfile_writer(outputFile):
-    #log file
+    # log file
     logfile = open(outputFile, 'w')
     writer = csv.writer(logfile, delimiter=' ', quoting=csv.QUOTE_MINIMAL)
     logfile.flush()
@@ -35,7 +36,7 @@ def logfile_writer(outputFile):
 
 
 def read_imgs_folder(dir_imgs):
-    #read image names in folder
+    # read image names in folder
     img_list = []
     for img_file in os.listdir(dir_imgs):
         if '.jpg' or '.png' in img_file:
@@ -46,9 +47,10 @@ def read_imgs_folder(dir_imgs):
 
 
 def writeOutput(trackedFeaturesOutput_undist, FT_forNthNberFrames, FD_everyIthFrame, directoryOutput):
-    outputFileFT = open(os.path.join(directoryOutput, 'Tracking_FT_nbrFrames_' + str(FT_forNthNberFrames) + '_FD_nbrFrames_' + str(FD_everyIthFrame)) + '.txt', 'w')
+    outputFileFT = open(os.path.join(directoryOutput, 'Tracking_FT_nbrFrames_' + str(FT_forNthNberFrames) +
+                                     '_FD_nbrFrames_' + str(FD_everyIthFrame)) + '.txt', 'w')
     writer = csv.writer(outputFileFT, delimiter="\t")
-    writer.writerow(['frame', 'id','x', 'y'])
+    writer.writerow(['frame', 'id', 'x', 'y'])
     writer.writerows(trackedFeaturesOutput_undist)
     outputFileFT.flush()
     outputFileFT.close()

@@ -1,4 +1,5 @@
-import os, csv
+import os
+import csv
 import numpy as np
 import pandas as pd
 import cv2
@@ -12,61 +13,61 @@ import featureFilter_functions as filterF
 import featureReference_functions as refF
 
 
-
 def EstimateExterior(gcpCoo_file, imgCoo_GCP_file, interior_orient, estimate_exterior,
                      unit_gcp, max_orientation_deviation, ransacApprox, angles_eor, pos_eor,
                      directoryOutput, unitAngles='radians'):
     try:
-        #read object coordinates of GCP (including point ID)
+        # read object coordinates of GCP (including point ID)
         gcpObjPts_table = np.asarray(pd.read_table(gcpCoo_file, header=None))   #, delimiter='\t'
     except:
         print('failed reading GCP file (object space)')
             
     try:
-        #read pixel coordinates of image points of GCPs (including ID)
+        # read pixel coordinates of image points of GCPs (including ID)
         gcpImgPts_table = np.asarray(pd.read_table(imgCoo_GCP_file, header=None))   #, delimiter='\t'
     except:
-        print('failed reading GCP file (imgage space)')
+        print('failed reading GCP file (image space)')
 
     try:
         gcpPts_ids = gcpImgPts_table[:,0]
         gcpPts_ids = gcpPts_ids.reshape(gcpPts_ids.shape[0],1)
-        gcpImgPts_to_undist = gcpImgPts_table[:,1:3]
+        gcpImgPts_to_undist = gcpImgPts_table[:, 1:3]
 
-        #undistort image measurements of GCP
+        # undistort image measurements of GCP
         gcpImgPts_undist = photogrF.undistort_img_coos(gcpImgPts_to_undist, interior_orient, False)
         gcpImgPts_undist = np.hstack((gcpPts_ids, gcpImgPts_undist))
     except:
         print('failed undistorting GCP image measurements')
             
-    #get exterior orientation
+    # get exterior orientation
     try:
-        #estimate exterior orientation from GCPs
+        # estimate exterior orientation from GCPs
         if estimate_exterior:
             if ransacApprox:
-                exteriorApprox = np.asarray([0,0,0,0,0,0]).reshape(6,1)
+                exteriorApprox = np.asarray([0, 0, 0, 0, 0, 0]).reshape(6, 1)
             else:
                 exteriorApprox = np.vstack((pos_eor, angles_eor)) * unit_gcp
         
             eor_mat = photogrF.getExteriorCameraGeometry(gcpImgPts_undist, gcpObjPts_table, interior_orient, unit_gcp, max_orientation_deviation, 
                                                          ransacApprox, exteriorApprox, True, directoryOutput)
         
-        #...or use predefined camera pose information
+        # ...or use predefined camera pose information
         else:        
             rot_mat = photogrF.rot_Matrix(angles_eor[0], angles_eor[1], angles_eor[2], unitAngles).T
             rot_mat = rot_mat * np.array([[-1,-1,-1],[1,1,1],[-1,-1,-1]])
             
-            eor_mat = np.hstack((rot_mat.T, pos_eor)) #if rotation matrix received from opencv transpose rot_mat
-            eor_mat = np.vstack((eor_mat, [0,0,0,1]))
+            eor_mat = np.hstack((rot_mat.T, pos_eor)) # if rotation matrix received from opencv transpose rot_mat
+            eor_mat = np.vstack((eor_mat, [0, 0, 0, 1]))
             print(eor_mat)
                  
-        eor_mat[0:3,3] = eor_mat[0:3,3] * unit_gcp
+        eor_mat[0:3, 3] = eor_mat[0:3, 3] * unit_gcp
         
     except Exception as e:        
         print(e)
         print('Referencing image failed\n')
         
     return eor_mat
+
 
 def getWaterlevelFromContour(contour3D, interior_orient, eor_mat, unit_gcp, directoryOutput):
     contour3D = contour3D * unit_gcp
@@ -76,7 +77,7 @@ def getWaterlevelFromContour(contour3D, interior_orient, eor_mat, unit_gcp, dire
     waterlevel = np.average(contour3DImgVisible[:,2])
 
     contour3DImgVisible = pd.DataFrame(contour3DImgVisible)
-    contour3DImgVisible.columns = ['X','Y','Z']
+    contour3DImgVisible.columns = ['X', 'Y', 'Z']
     contour3DImgVisible.to_csv(directoryOutput + 'ContourInImgView.txt', sep='\t', index=False)
 
     print('waterlevel is ' + str(waterlevel))
@@ -85,18 +86,18 @@ def getWaterlevelFromContour(contour3D, interior_orient, eor_mat, unit_gcp, dire
 
 def searchMask(waterlevel_pt, waterlevel_buffer, AoI_file, ptCloud, unit_gcp, interior_orient,
                eor_mat, savePlotData, directoryOutput, img_list, preDefAoI=False, imgContourDraw=None):
-    waterlevel = waterlevel_pt - waterlevel_buffer  #read waterlevel
-    #use search mask from file
+    waterlevel = waterlevel_pt - waterlevel_buffer  # read waterlevel
+    # use search mask from file
     if preDefAoI:
         try:
             searchMask = detectF.readMaskImg(AoI_file, directoryOutput, imgContourDraw)
         except:
             print('reading search mask file failed')
         
-    #...or calculate from water level information and 3D point cloud
+    # ...or calculate from water level information and 3D point cloud
     else:
-        #select points only below water level to extract river area to search for features...
-        pointsBelowWater = ptCloud[ptCloud[:,2] < waterlevel] * unit_gcp
+        # select points only below water level to extract river area to search for features...
+        pointsBelowWater = ptCloud[ptCloud[:, 2] < waterlevel] * unit_gcp
         searchMask = detectF.defineFeatureSearchArea(pointsBelowWater, interior_orient, eor_mat, False, savePlotData, directoryOutput, img_list[1])  #xy        
             
     searchMask = np.asarray(searchMask)
@@ -108,12 +109,12 @@ def searchMask(waterlevel_pt, waterlevel_buffer, AoI_file, ptCloud, unit_gcp, in
 def FeatureDetectionPTV(dir_imgs, img_list, frameCount, minimumThreshBrightness, neighborSearchRadius_FD, searchMask,
                         maximumNeighbors_FD, maxFtNbr_FD, sensitiveFD, savePlotData, directoryOutput, FD_everyIthFrame,
                         first_loop, feature_ID_max=None):
-    #detect features in search area with feature detection
+    # detect features in search area with feature detection
     featuresToTrack = detectF.featureDetection(dir_imgs, img_list[frameCount], searchMask, minimumThreshBrightness, neighborSearchRadius_FD, 
                                                maximumNeighbors_FD, maxFtNbr_FD, sensitiveFD, savePlotData, directoryOutput, False)
     feature_ID = np.array(range(featuresToTrack.shape[0]))        
     
-    #assign corresponding IDs to features
+    # assign corresponding IDs to features
     if first_loop:
         feature_ID_max = featuresToTrack.shape[0] + 1 
         first_loop = False             
@@ -126,7 +127,7 @@ def FeatureDetectionPTV(dir_imgs, img_list, frameCount, minimumThreshBrightness,
     
     print('nbr features detected: ' + str(featuresToTrack.shape[0]) + '\n')
     
-    #write detected feature to file
+    # write detected feature to file
     outputFileFD = open(os.path.join(directoryOutput, 'FD_every_' + str(FD_everyIthFrame) + '_' + img_list[frameCount][:-4]) + '.txt', 'w')
     writer = csv.writer(outputFileFD, delimiter="\t")
     writer.writerow(['id','x', 'y'])
@@ -157,10 +158,11 @@ def FeatureDetectionLSPIV(dir_imgs, img_list, frameCount, pointDistX, pointDistY
     
     print('nbr features detected: ' + str(featuresToTrack.shape[0]) + '\n')
     
-    #write detected feature to file
-    outputFileFD = open(os.path.join(directoryOutput, 'FD_every_' + str(FD_everyIthFrame) + '_' + img_list[frameCount][:-4]) + '.txt', 'w')
+    # write detected feature to file
+    outputFileFD = open(os.path.join(directoryOutput, 'FD_every_' + str(FD_everyIthFrame) + '_' +
+                                     img_list[frameCount][:-4]) + '.txt', 'w')
     writer = csv.writer(outputFileFD, delimiter="\t")
-    writer.writerow(['id','x', 'y'])
+    writer.writerow(['id', 'x', 'y'])
     writer.writerows(featuresToTrack)
     outputFileFD.flush()
     outputFileFD.close()
@@ -189,21 +191,21 @@ def FeatureTracking(template_width, template_height, search_area_x_CC, search_ar
     trackedFeaturesOutput_undist0 = trackedFeaturesOutput_undist0.reshape(4, frame_name0.shape[0]).T
     trackedFeaturesOutput_undist.extend(trackedFeaturesOutput_undist0) 
     
-    #loop through images
+    # loop through images
     img_nbr_tracking = frameCount
     while img_nbr_tracking < frameCount+FT_forNthNberFrames:
-        #read images
+        # read images
         templateImg = cv2.imread(dir_imgs + img_list[img_nbr_tracking], 0)
         searchImg = cv2.imread(dir_imgs + img_list[img_nbr_tracking+TrackEveryNthFrame], 0)
         
         print('template image: ' + img_list[img_nbr_tracking] + ', search image: ' + 
               img_list[img_nbr_tracking+TrackEveryNthFrame] + '\n')
         
-        #track features per image sequence        
+        # track features per image sequence
         if lk:
-            #tracking (matching templates) with Lucas Kanade
+            # tracking (matching templates) with Lucas Kanade
             try:
-                #consider knowledge about flow velocity and direction (use shift of search window)
+                # consider knowledge about flow velocity and direction (use shift of search window)
                 if initialEstimatesLK == True:
                     featureEstimatesNextFrame = featuresToTrack[:,1:]
                     x_initialGuess, y_initialGuess = featureEstimatesNextFrame[:,0], featureEstimatesNextFrame[:,1]
@@ -214,7 +216,7 @@ def FeatureTracking(template_width, template_height, search_area_x_CC, search_ar
                 else:
                     featureEstimatesNextFrame = None
                 
-                #perform tracking
+                # perform tracking
                 trackedFeaturesLK, status = trackF.performFeatureTrackingLK(templateImg, searchImg, featuresToTrack[:,1:],
                                                                             initialEstimatesLK, featureEstimatesNextFrame,
                                                                             template_width, template_height, maxDistBackForward_px)
@@ -223,17 +225,17 @@ def FeatureTracking(template_width, template_height, search_area_x_CC, search_ar
                 trackedFeaturesLKFiltered = np.hstack((featuresId.reshape(featuresId.shape[0],1), trackedFeaturesLK))
                 trackedFeaturesLKFiltered = np.hstack((trackedFeaturesLKFiltered, status))
                 
-                #remove points with erroneous LK tracking (ccheck column 3)
+                # remove points with erroneous LK tracking (ccheck column 3)
                 trackedFeaturesLK_px = trackedFeaturesLKFiltered[~np.all(trackedFeaturesLKFiltered == 0, axis=1)]
                 
-                #drop rows with nan values (which are features that failed back-forward tracking test)
+                # drop rows with nan values (which are features that failed back-forward tracking test)
                 trackedFeaturesLK_pxDF = pd.DataFrame(trackedFeaturesLK_px)
                 trackedFeaturesLK_pxDF = trackedFeaturesLK_pxDF.dropna()
                 trackedFeaturesLK_px = np.asarray(trackedFeaturesLK_pxDF)
                 
                 trackedFeatures = trackedFeaturesLK_px[:,0:3]
                 
-                #undistort tracked feature measurement
+                # undistort tracked feature measurement
                 trackedFeature_undist = photogrF.undistort_img_coos(trackedFeaturesLK_px[:,1:3], interior_orient)
                 trackedFeature_undist_px = photogrF.metric_to_pixel(trackedFeature_undist, interior_orient.resolution_x, interior_orient.resolution_y, 
                                                                     interior_orient.sensor_size_x, interior_orient.sensor_size_y)    
@@ -251,28 +253,28 @@ def FeatureTracking(template_width, template_height, search_area_x_CC, search_ar
                 print('stopped tracking features with LK after frame ' + img_list[img_nbr_tracking])              
         
         else:
-            #tracking (matching templates) with NCC
+            # tracking (matching templates) with NCC
             trackedFeatures = []     
             for featureToTrack in featuresToTrack:
                 
                 try:
-                    #perform tracking
+                    # perform tracking
                     trackedFeature_px = trackF.performFeatureTracking(template_size, search_area, featureToTrack[1:], templateImg, searchImg, 
                                                                       shiftSearchArea, performLSM, lsmBuffer, threshLSM, subpixel, False)
                     
-                    #check backwards
+                    # check backwards
                     trackedFeature_pxCheck = trackF.performFeatureTracking(template_size, search_area, trackedFeature_px, searchImg, templateImg, 
                                                                            -1*shiftSearchArea, performLSM, lsmBuffer, threshLSM, subpixel, False)                    
-                    #set points that fail backward forward tracking test to nan
+                    # set points that fail backward forward tracking test to nan
                     distBetweenBackForward = abs(featureToTrack[1:]-trackedFeature_pxCheck).reshape(-1, 2).max(-1)
                     if distBetweenBackForward > maxDistBackForward_px:
                         print('feature ' + str(featureToTrack[0]) + ' failed backward test.')
                         x = 1/0
                     
-                    #join tracked feature and id of feature
+                    # join tracked feature and id of feature
                     trackedFeatures.append([featureToTrack[0], trackedFeature_px[0], trackedFeature_px[1]])
                     
-                    #undistort tracked feature measurement
+                    # undistort tracked feature measurement
                     trackedFeature_undist = photogrF.undistort_img_coos(trackedFeature_px.reshape(1,2), interior_orient)
                     trackedFeature_undist_px = photogrF.metric_to_pixel(trackedFeature_undist, interior_orient.resolution_x, interior_orient.resolution_y, 
                                                                         interior_orient.sensor_size_x, interior_orient.sensor_size_y)    
@@ -287,7 +289,7 @@ def FeatureTracking(template_width, template_height, search_area_x_CC, search_ar
                 
         print('nbr of tracked features: ' + str(trackedFeatures.shape[0]) + '\n')
     
-        #for visualization of tracked features in gif
+        # for visualization of tracked features in gif
         featuers_end, featuers_start, _ = drawF.assignPtsBasedOnID(trackedFeatures, featuresToTrack)    
         arrowsImg = drawF.drawArrowsOntoImg(templateImg, featuers_start, featuers_end)                                
         
@@ -311,22 +313,22 @@ def FilterTracks(trackedFeaturesOutput_undist, img_name, directoryOutput,
                  threshAngleSteadiness, threshAngleRange,
                  binNbrMainflowdirection, MainFlowAngleBuffer, lspiv):
     '''filter tracks considering several filter parameters'''
-    #transform dataframe to numpy array and get feature ids
+    # transform dataframe to numpy array and get feature ids
     trackedFeaturesOutput_undist = np.asarray(trackedFeaturesOutput_undist)
-    trackedFeaturesOutput_undist = np.asarray(trackedFeaturesOutput_undist[:,1:4], dtype=np.float)
-    featureIDs_fromTracking = np.unique(trackedFeaturesOutput_undist[:,0])
+    trackedFeaturesOutput_undist = np.asarray(trackedFeaturesOutput_undist[:, 1:4], dtype=np.float)
+    featureIDs_fromTracking = np.unique(trackedFeaturesOutput_undist[:, 0])
     Features_px = np.empty((1,6))
     
     for feature in featureIDs_fromTracking:
-        processFeature = trackedFeaturesOutput_undist[trackedFeaturesOutput_undist[:,0] == feature, 1:3]
+        processFeature = trackedFeaturesOutput_undist[trackedFeaturesOutput_undist[:, 0] == feature, 1:3]
         
         #get distance between tracked features across subsequent frames in image space
         if lspiv:
-            xy_start_tr = np.ones((processFeature.shape[0]-1,processFeature.shape[1])) * processFeature[0,:]
+            xy_start_tr = np.ones((processFeature.shape[0]-1, processFeature.shape[1])) * processFeature[0, :]
         else:
-            xy_start_tr = processFeature[:-1,:]
-        xy_tr = processFeature[1:,:]        
-        dist = np.sqrt(np.square(xy_start_tr[:,0] - xy_tr[:,0]) + (np.square(xy_start_tr[:,1] - xy_tr[:,1])))
+            xy_start_tr = processFeature[:-1, :]
+        xy_tr = processFeature[1:, :]
+        dist = np.sqrt(np.square(xy_start_tr[:, 0] - xy_tr[:, 0]) + (np.square(xy_start_tr[:,1] - xy_tr[:,1])))
         
         feature_px = np.hstack((np.ones((xy_start_tr.shape[0],1)) * feature, xy_start_tr))
         feature_px = np.hstack((feature_px, xy_tr))

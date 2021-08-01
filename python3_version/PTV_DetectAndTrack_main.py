@@ -19,7 +19,7 @@ import featureFilter_functions as filterF
 import featureReference_functions as refF
 import input_output_functions as ioF
 
-print "OpenCV version :  {0}".format(cv2.__version__)
+print("OpenCV version :  {0}".format(cv2.__version__))
 
 
 '''-------set parameters-------'''
