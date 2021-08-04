@@ -168,7 +168,7 @@ def TrackFilterMainflowdirection(image_points, binNbr, angle_buffer=10):
             id_below_main_dir = np.where(angle_array[:, 1] < bin_edges[main_dir_ind])
             id_above_main_dir = np.where(angle_array[:, 1] > bin_edges[int(main_dir_ind + 1)])
 
-            if np.asarray(id_below_main_dir).size == False and np.asarray(id_above_main_dir).size == False:
+            if np.asarray(id_below_main_dir).size is False and np.asarray(id_above_main_dir).size is False:
                 print('Error filtering flow direction (angle index)')
                 sys.exit()
             elif np.asarray(id_below_main_dir).size and np.asarray(id_above_main_dir).size:

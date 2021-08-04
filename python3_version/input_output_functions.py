@@ -24,15 +24,6 @@
 
 import csv
 import os
-     
-     
-def logfile_writer(outputFile):
-    # log file
-    logfile = open(outputFile, 'w')
-    writer = csv.writer(logfile, delimiter=' ', quoting=csv.QUOTE_MINIMAL)
-    logfile.flush()
-    
-    return writer, logfile
 
 
 def read_imgs_folder(dir_imgs):

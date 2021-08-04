@@ -485,7 +485,6 @@ track = np.hstack((x_track.reshape(filteredFeatures.shape[0],1), y_track.reshape
 angle = filterF.angleBetweenVecAndXaxis(track)    
 filteredFeatures['angle'] = pd.Series(angle, index=filteredFeatures.index)
 
-
 #directional direction steadiness
 filteredFeatures, steady_angle = filterF.TrackFilterSteadiness(filteredFeatures, threshAngleSteadiness)
 try:
