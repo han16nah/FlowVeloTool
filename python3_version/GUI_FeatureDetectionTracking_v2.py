@@ -1498,8 +1498,8 @@ class FlowVeloTool:
 
         elif self.filterOnly.get() is True and self.stayImgSpace.get() is False:
             log_dict = {
-                'exterior angles': angles_eor,
-                'exterior position': pos_eor,
+                'exterior angles': angles_eor.tolist(),
+                'exterior position': pos_eor.tolist(),
                 'unit_gcp': unit_gcp,
                 'use ransacApprox': ransacApprox,
                 'waterlevel': waterlevel_pt,
