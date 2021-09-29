@@ -4,6 +4,17 @@
 """
 Hannah weiser, September 2021
 h.weiser@stud.uni-heidelberg.de
+
+Function to manually track objects (branches) in the video frames.
+
+Execution (example)
+
+image_coords_by_click.py --img "I:\UAV-photo\Befliegung_2020\for_velocity\frames_30fps_coreg" --outdir "I:\UAV-photo\test" --ior "I:\UAV-photo\Befliegung_2020\for_velocity\sensorInteriorOrientation.txt" --gcpcoo "I:\UAV-photo\Befliegung_2020\for_velocity\GCPsinObjectSpace.txt" --gcpimg "I:\UAV-photo\Befliegung_2020\for_velocity\GCPsInImage.txt" --fps 30 --trackevery 30 --waterlevel 137.0
+
+To view the help, run:
+image_coords_by_click.py --help
+or
+image_coords_by_click.py -h
 """
 
 import cv2
@@ -17,13 +28,46 @@ import featureFilter_functions as filterF
 import photogrammetry_functions as photogrF
 import matplotlib.pyplot as plt
 import matplotlib
+import argparse
+
+
+def readUserArguments():
+    # Generate help and user argument parsing
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                     description="(c) Hannah Weiser (2021) - Heidelberg University")
+    parser.add_argument("--img", dest='images', type=str,
+                        help="Directory containing (co-registered) frames of the video",
+                        required=True)
+    parser.add_argument("--outdir", dest='outdir', type=str,
+                        help="Output directory of the FlowVelo tool, containing the results of feature tracking, filtering and velocity computation",
+                        required=True)
+    parser.add_argument("--ior", dest='ior_file', type=str,
+                        help="Output directory of the FlowVelo tool, containing the results of feature tracking, filtering and velocity computation",
+                        required=True)
+    parser.add_argument("--gcpcoo", dest='gcpCoo_file', type=str,
+                        help="Output directory of the FlowVelo tool, containing the results of feature tracking, filtering and velocity computation",
+                        required=True)
+    parser.add_argument("--gcpimg", dest='imgCoo_GCP_file', type=str,
+                        help="Output directory of the FlowVelo tool, containing the results of feature tracking, filtering and velocity computation",
+                        required=True)
+    parser.add_argument("--fps", dest='framerate', type=int,
+                        help="Frame rate (frames per second) of the camera",
+                        required=True)
+    parser.add_argument("--trackevery", dest='trackeverynth', type=int,
+                        help="Number of frames to skip, i.e., track every nth frame",
+                        required=True)
+    parser.add_argument("--waterlevel", dest='water_level', type=float,
+                        help="Water level in m",
+                        required=True)
+
+    opts = parser.parse_args()
+    return opts
 
 
 def click_event(event, x, y, flags, params):
     if event == cv2.EVENT_LBUTTONDOWN:
 
         # writing filename to output file
-        print(str(img_path))
         outf.write(str(img_path) + " 1")
 
         # displaying the coordinates
@@ -34,7 +78,7 @@ def click_event(event, x, y, flags, params):
         font = cv2.FONT_HERSHEY_SIMPLEX
         cv2.putText(img, str(x) + ',' + str(y), (x, y), font, 1, (255, 0, 0), 2)
         cv2.drawMarker(img, (x, y), (255, 0, 0), markerType=cv2.MARKER_SQUARE, markerSize=10)
-        cv2.imshow('image', img)
+        cv2.imshow(img_path.name, img)
 
         # write image coordinates to file
         outf.write(' %i %i\n' % (x, y))
@@ -42,7 +86,6 @@ def click_event(event, x, y, flags, params):
     elif event == cv2.EVENT_RBUTTONDOWN:
 
         # writing filename to output file
-        print(str(img_path))
         outf.write(str(img_path) + " 2")
 
         # displaying the coordinates
@@ -52,8 +95,8 @@ def click_event(event, x, y, flags, params):
         # b) on the image window
         font = cv2.FONT_HERSHEY_SIMPLEX
         cv2.putText(img, str(x) + ',' + str(y), (x, y), font, 1, (255, 255, 0), 2)
-        cv2.drawMarker(img, (x, y), (255, 0, 0), markerType=cv2.MARKER_SQUARE, markerSize=10)
-        cv2.imshow('image', img)
+        cv2.drawMarker(img, (x, y), (255, 255, 0), markerType=cv2.MARKER_SQUARE, markerSize=10)
+        cv2.imshow(img_path.name, img)
 
         # write image coordinates to file
         outf.write(' %i %i\n' % (x, y))
@@ -64,7 +107,6 @@ def TracksPx_to_TracksMetric(filteredFeatures, interior_orient, eor_mat, unit_gc
                              directoryOutput, img_name, every_xth=1):
     # scale tracks in image space to tracks in object space to get flow velocity in m/s
     waterlevel = waterlevel_pt
-    filteredFeatures_count = np.asarray(filteredFeatures.groupby('id', as_index=False).count())[:, 2]
 
     filteredFeatures_list = []
     if every_xth > 1:
@@ -85,7 +127,6 @@ def TracksPx_to_TracksMetric(filteredFeatures, interior_orient, eor_mat, unit_gc
     for k, filteredFeatures in enumerate(filteredFeatures_list):
         image = cv2.imread(img_name, 0)
 
-        print(filteredFeatures)
         # get first and last position in image space of each tracked feature
         filteredFeatures_1st = filteredFeatures.groupby('id', as_index=False).head(1)
         filteredFeatures_last = filteredFeatures.groupby('id', as_index=False).tail(1)
@@ -187,7 +228,7 @@ def draw_tracks(Final_Vals, image, dir_out, outputImgName, variableToDraw, color
 
         ax.imshow(image, cmap='gray')
 
-        #save figure
+        # save figure
         plt.savefig(str(Path(dir_out) / outputImgName),  dpi=600)
         plt.close('all')
         plt.clf()
@@ -196,32 +237,73 @@ def draw_tracks(Final_Vals, image, dir_out, outputImgName, variableToDraw, color
         print(e)
 
 
+def draw_text(img, text,
+          font=cv2.FONT_HERSHEY_SIMPLEX,
+          pos=(0, 0),
+          font_scale=1,
+          font_thickness=2,
+          text_color=(0, 255, 0),
+          text_color_bg=(0, 0, 0)
+          ):
+
+    x, y = pos
+    text_size, _ = cv2.getTextSize(text, font, font_scale, font_thickness)
+    text_w, text_h = text_size
+    cv2.rectangle(img, (x-5, y-5), (x + text_w+5, y + text_h+5), text_color_bg, -1)
+    cv2.putText(img, text, (x, y + text_h + font_scale - 1), font, font_scale, text_color, font_thickness)
+
+    return text_size
+
+
 # driver function
 if __name__ == "__main__":
 
-    images = Path(r'I:\UAV-photo\Befliegung_2020\for_velocity\frames_30fps_coreg').glob('frame*_coreg.jpg')
-    outfile = PurePath(r'I:\UAV-photo\Befliegung_2020\for_velocity', 'branch_coords2.txt')
+    opts = readUserArguments()
 
+    images = Path(opts.images).glob('*.jpg')
+    out_dir = opts.outdir
+    try:
+        Path(out_dir).mkdir(parents=True, exist_ok=False)
+    except FileExistsError:
+        print("Folder is already there")
+    else:
+        print("Folder was created")
+
+    outfile = PurePath(out_dir, 'branch_coords.txt')
 
     outf = open(outfile, 'w')
     outf.write("filename id x y\n")
 
     for i, img_path in enumerate(images):
-        if i % 30 == 0:  # only every 30th image -> tracking stem every second
+        if i % opts.trackeverynth == 0:
             # reading the image
             img = cv2.imread(str(img_path))
 
             # resizing display window
-            cv2.namedWindow('image', cv2.WINDOW_NORMAL)
-            cv2.moveWindow('image', 10, 10)
-            cv2.resizeWindow('image', 1600, 900)
+            cv2.namedWindow(img_path.name, cv2.WINDOW_NORMAL)
+            cv2.moveWindow(img_path.name, 10, 10)
+            cv2.resizeWindow(img_path.name, 1600, 900)
+
+            # fontScale
+            fontScale = 1
+
+            # Line thickness of 2 px
+            thickness = 2
+
+            instr_left = "Left click:  Define the one end of the branch"
+            instr_right = "Right click: Define the other end of the branch"
+            instr_key = "Any key:    Press any key to continue with the next image"
+
+            draw_text(img, instr_left, pos=(25, 25), text_color=(255, 0, 0))
+            draw_text(img, instr_right, pos=(25, 60), text_color=(255, 255, 0))
+            draw_text(img, instr_key, pos=(25, 95), text_color=(255, 255, 255))
 
             # displaying the image
-            cv2.imshow('image', img)
+            cv2.imshow(img_path.name, img)
 
             # setting mouse handler for the image
             # and calling the click_event() function
-            cv2.setMouseCallback('image', click_event)
+            cv2.setMouseCallback(img_path.name, click_event)
 
             # wait for a key to be pressed to exit
             cv2.waitKey(0)
@@ -231,8 +313,9 @@ if __name__ == "__main__":
 
     outf.close()
 
-
-    last_img = r'I:\UAV-photo\Befliegung_2020\for_velocity\frames_30fps_coreg\frame00331_coreg.jpg'
+    images = list(Path(opts.images).glob('*.jpg'))
+    index_lastimg = opts.trackeverynth * np.floor(len(images)/opts.trackeverynth) - 1
+    last_img = str(images[int(index_lastimg)])
     img = cv2.imread(last_img)
 
     cv2.namedWindow('track', cv2.WINDOW_NORMAL)
@@ -258,13 +341,6 @@ if __name__ == "__main__":
             prev_point = df_coords_2.values[i-1]
         cv2.line(img, (prev_point[2], prev_point[3]), (vals[2], vals[3]), color=(255, 191, 0), thickness=2)
 
-    out_dir = Path(r'I:\UAV-photo\FlowVeloTool_Acc_using_branch') / outfile.parts[-1].replace(".txt", "")
-    try:
-        out_dir.mkdir(parents=True, exist_ok=False)
-    except FileExistsError:
-        print("Folder is already there")
-    else:
-        print("Folder was created")
     cv2.imshow('track', img)
     cv2.imwrite(str(Path(out_dir) / "branch_track.jpg"), img)
     cv2.waitKey(0)
@@ -272,18 +348,14 @@ if __name__ == "__main__":
     # close the window
     cv2.destroyAllWindows()
 
-###
-    ior_file = r'I:\UAV-photo\Befliegung_2020\for_velocity\sensorInteriorOrientation.txt'
-    gcpCoo_file = r"I:\UAV-photo\Befliegung_2020\for_velocity\GCPsinObjectSpace.txt"
-    imgCoo_GCP_file = r"I:\UAV-photo\Befliegung_2020\for_velocity\GCPsInImage.txt"
-    interior_orient = photogrF.read_aicon_ior(ior_file)
+    interior_orient = photogrF.read_aicon_ior(opts.ior_file)
     print("Computing velocity")
-    eor_mat = ptv.EstimateExterior(gcpCoo_file, imgCoo_GCP_file, interior_orient, estimate_exterior=True,
+    eor_mat = ptv.EstimateExterior(opts.gcpCoo_file, opts.imgCoo_GCP_file, interior_orient, estimate_exterior=True,
                                    unit_gcp=1000.0, max_orientation_deviation=1, ransacApprox=True, angles_eor=None,
                                    pos_eor=None, directoryOutput=str(out_dir))
     TracksPx_to_TracksMetric(df_coords, interior_orient, eor_mat, unit_gcp=1000.0,
-                             frame_rate_cam=30, TrackEveryNthFrame=30, waterlevel_pt=137.0,
+                             frame_rate_cam=opts.framerate, TrackEveryNthFrame=opts.trackeverynth, waterlevel_pt=opts.water_level,
                              directoryOutput=str(out_dir), img_name=last_img, every_xth=1)
     TracksPx_to_TracksMetric(df_coords, interior_orient, eor_mat, unit_gcp=1000.0,
-                             frame_rate_cam=30, TrackEveryNthFrame=30, waterlevel_pt=137.0,
+                             frame_rate_cam=opts.framerate, TrackEveryNthFrame=opts.trackeverynth, waterlevel_pt=opts.water_level,
                              directoryOutput=str(out_dir), img_name=last_img, every_xth=4)
