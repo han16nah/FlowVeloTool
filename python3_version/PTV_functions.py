@@ -602,6 +602,8 @@ def TracksPx_to_TracksMetric(filteredFeatures, interior_orient, eor_mat, unit_gc
     # write filtered tracking results to file and draw final tracking results to image
     print('nbr of final tracked features: ' + str(filteredFeatures.shape[0]) + '\n')
 
+    return str(filteredFeatures.shape[0])
+
 
 def filterFeatureOrganise(organizeDataframe, XYZ, XtrYtr, xytr, distMetric, Velo,
                           ptv=True, count=None, xy=None):

@@ -1414,7 +1414,7 @@ class FlowVeloTool:
 
         '''-------transform img measurements into object space-------'''
         if not self.stayImgSpace.get():
-            ptv.TracksPx_to_TracksMetric(filteredFeatures, interior_orient, eor_mat, unit_gcp,
+            nbr_features_final = ptv.TracksPx_to_TracksMetric(filteredFeatures, interior_orient, eor_mat, unit_gcp,
                                          frame_rate_cam, TrackEveryNthFrame, waterlevel_pt, directoryOutput, img_name,
                                          veloStdThresh, self.lspiv.get(), self.veloFilterSize.get(), searchMask)
             self.printTxt('------------------------------------------\n'
@@ -1464,8 +1464,8 @@ class FlowVeloTool:
                 'nbr features main flow direction': nbr_features_mainflowdir,
                 'median angle flow direction': flowdir_angle,
                 'veloStdThresh': veloStdThresh,
-                'nbr filtered features': filteredFeatures.shape[0],
-                'nbr raw features': nbr_features_raw
+                'nbr raw features': nbr_features_raw,
+                'nbr final features': nbr_features_final
             }
             with open(directoryOutput + 'logfile.json', "w") as f:
                 json.dump(log_dict, f, indent=4)
@@ -1490,8 +1490,8 @@ class FlowVeloTool:
                 'MainFlowAngleBuffer': MainFlowAngleBuffer,
                 'nbr features main flow direction': nbr_features_mainflowdir,
                 'median angle flow direction': flowdir_angle,
-                'nbr filtered features': filteredFeatures.shape[0],
-                'nbr raw features': nbr_features_raw
+                'nbr raw features': nbr_features_raw,
+                'nbr final features': nbr_features_final
             }
             with open(directoryOutput + 'logfileFilterImgSpace.json', "w") as f:
                 json.dump(log_dict, f)
@@ -1522,8 +1522,8 @@ class FlowVeloTool:
                 'nbr features main flow direction': nbr_features_mainflowdir,
                 'median angle flow direction': flowdir_angle,
                 'veloStdThresh': veloStdThresh,
-                'nbr filtered features': filteredFeatures.shape[0],
-                'nbr raw features': nbr_features_raw
+                'nbr raw features': nbr_features_raw,
+                'nbr final features': nbr_features_final
             }
             with open(directoryOutput + 'logfileFilter.json', "w") as f:
                 json.dump(log_dict, f)
@@ -1564,8 +1564,8 @@ class FlowVeloTool:
                 'MainFlowAngleBuffer': MainFlowAngleBuffer,
                 'nbr features main flow direction': nbr_features_mainflowdir,
                 'median angle flow direction': flowdir_angle,
-                'nbr filtered features': filteredFeatures.shape[0],
-                'nbr raw features': nbr_features_raw
+                'nbr raw features': nbr_features_raw,
+                'nbr final features': nbr_features_final
             }
             with open(directoryOutput + 'logfileImgSpace.json', "w") as f:
                 json.dump(log_dict, f)
